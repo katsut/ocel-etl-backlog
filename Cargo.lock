@@ -666,9 +666,9 @@ dependencies = [
 
 [[package]]
 name = "ocel-etl"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffa8009a48f017a7bfff085bcd07855d71bd4fb8e49ba3c4ff05b910c66a98eb"
+checksum = "5987489737c297852928bf5dca96a2a7ae6b445feb7ea8f1942afdabcf12c3c9"
 dependencies = [
  "chrono",
  "ocel",

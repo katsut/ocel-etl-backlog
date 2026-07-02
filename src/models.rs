@@ -45,6 +45,7 @@ pub struct Issue {
     #[serde(rename = "createdUser")]
     pub created_user: User,
     pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
     #[serde(rename = "dueDate")]
     pub due_date: Option<DateTime<Utc>>,
 }
