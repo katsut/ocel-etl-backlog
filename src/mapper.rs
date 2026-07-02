@@ -24,6 +24,30 @@ use crate::models::{ChangeLogEntry, Comment, Issue, Project};
 #[must_use]
 pub fn map_project(project: &Project, issues: &[(Issue, Vec<Comment>)]) -> StagingLog {
     let mut staging = StagingLog::new();
+    map_project_into(&mut staging, project, issues);
+    staging
+}
+
+/// A project paired with its issues, each issue paired with its comments.
+pub type ProjectIssues = (Project, Vec<(Issue, Vec<Comment>)>);
+
+/// Map several projects into one [`StagingLog`] (objects such as users merge
+/// naturally across projects).
+#[must_use]
+pub fn map_projects(projects: &[ProjectIssues]) -> StagingLog {
+    let mut staging = StagingLog::new();
+    for (project, issues) in projects {
+        map_project_into(&mut staging, project, issues);
+    }
+    staging
+}
+
+/// Append one project's data to an existing [`StagingLog`].
+pub fn map_project_into(
+    staging: &mut StagingLog,
+    project: &Project,
+    issues: &[(Issue, Vec<Comment>)],
+) {
     let epoch = DateTime::UNIX_EPOCH;
 
     staging.upsert_object(&project.project_key, "project");
@@ -34,16 +58,15 @@ pub fn map_project(project: &Project, issues: &[(Issue, Vec<Comment>)]) -> Stagi
         epoch,
     );
 
-    // issue id -> key, for resolving parentIssueId
+    // issue id -> key, for resolving parentIssueId (same-project only)
     let key_of: HashMap<u64, &str> = issues
         .iter()
         .map(|(issue, _)| (issue.id, issue.issue_key.as_str()))
         .collect();
 
     for (issue, comments) in issues {
-        map_issue(&mut staging, project, issue, comments, &key_of);
+        map_issue(staging, project, issue, comments, &key_of);
     }
-    staging
 }
 
 fn user_object(staging: &mut StagingLog, user: &crate::models::User) -> String {
