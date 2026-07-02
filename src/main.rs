@@ -30,21 +30,6 @@ enum Command {
     },
 }
 
-fn write_any(log: &ocel::Ocel, path: &Path) -> Result<(), Box<dyn Error>> {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    match ext.as_str() {
-        "json" | "jsonocel" => ocel::io::json::write_path(log, path)?,
-        "sqlite" | "db" => ocel::io::sqlite::write_path(log, path)?,
-        "xml" | "xmlocel" => ocel::io::xml::write_path(log, path)?,
-        other => return Err(format!("unknown file extension: {other:?}").into()),
-    }
-    Ok(())
-}
-
 fn pull(project_key: &str, out: &Path) -> Result<(), Box<dyn Error>> {
     let client = BacklogClient::from_env()?;
     let project = client.project(project_key)?;
@@ -72,7 +57,7 @@ fn pull(project_key: &str, out: &Path) -> Result<(), Box<dyn Error>> {
         log.objects.len()
     );
 
-    write_any(&log, out)?;
+    ocel::io::write_path(&log, out)?;
     eprintln!("wrote {}", out.display());
     Ok(())
 }
