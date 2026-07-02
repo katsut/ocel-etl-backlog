@@ -7,10 +7,11 @@ repository = "https://github.com/katsut/ocel-etl-backlog"
 description = "Backlog → OCEL 2.0 ETL connector"
 
 [dependencies]
-ocel-core = { git = "https://github.com/katsut/ocel-rs", version = "0.1.0", optional = true }
-ocel-etl = { git = "https://github.com/katsut/ocel-etl", version = "0.1.0", optional = true }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+thiserror = "2"
 
 [lints.rust]
 unsafe_code = "forbid"

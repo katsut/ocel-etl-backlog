@@ -1,0 +1,29 @@
+[
+  {
+    "id": 501,
+    "projectId": 1,
+    "issueId": 101,
+    "content": "Looks good, starting on this now.",
+    "changeLog": [],
+    "createdUser": { "id": 11, "userId": "alice", "name": "Alice", "roleType": 2, "lang": "en", "mailAddress": "alice@example.com" },
+    "created": "2026-01-06T09:15:00Z",
+    "updated": "2026-01-06T09:15:00Z",
+    "stars": [],
+    "notifications": []
+  },
+  {
+    "id": 502,
+    "projectId": 1,
+    "issueId": 101,
+    "content": null,
+    "changeLog": [
+      { "field": "status", "newValue": "In Progress", "originalValue": "Open", "attachmentInfo": null, "attributeInfo": null, "notificationInfo": null },
+      { "field": "assigner", "newValue": "Alice", "originalValue": null, "attachmentInfo": null, "attributeInfo": null, "notificationInfo": null }
+    ],
+    "createdUser": { "id": 12, "userId": "bob", "name": "Bob", "roleType": 1, "lang": "en", "mailAddress": "bob@example.com" },
+    "created": "2026-01-06T11:00:00Z",
+    "updated": "2026-01-06T11:00:00Z",
+    "stars": [],
+    "notifications": []
+  }
+]
