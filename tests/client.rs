@@ -46,7 +46,8 @@ fn issue_json(id: u64) -> String {
             "priority":{{"id":3,"name":"Normal"}},
             "assignee":null,"category":[],"milestone":[],"parentIssueId":null,
             "createdUser":{{"id":12,"name":"Bob"}},
-            "created":"2026-01-05T09:00:00Z","dueDate":null}}"#
+            "created":"2026-01-05T09:00:00Z","updated":"2026-01-05T09:00:00Z",
+            "dueDate":null}}"#
     )
 }
 
