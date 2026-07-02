@@ -156,3 +156,28 @@ fn multiple_projects_merge_into_one_log() {
     assert_eq!(bobs, 1);
     assert!(ocel.events.iter().any(|e| e.id == "OPS-1/created"));
 }
+
+/// Streaming ingestion (ProjectMapper) produces exactly the same log as the
+/// batch path.
+#[test]
+fn streaming_equals_batch() {
+    use ocel_etl::StagingLog;
+    use ocel_etl_backlog::mapper::ProjectMapper;
+
+    let batch = map_project(&project(), &[(issue(), comments())])
+        .into_ocel()
+        .unwrap();
+
+    let p = project();
+    let issues = vec![issue()];
+    let mut staging = StagingLog::new();
+    let mapper = ProjectMapper::new(&p, &issues);
+    mapper.register(&mut staging);
+    for one in &issues {
+        let cs = comments(); // fetched per issue, dropped after mapping
+        mapper.map_issue(&mut staging, one, &cs);
+    }
+    let streamed = staging.into_ocel().unwrap();
+
+    assert_eq!(batch, streamed);
+}

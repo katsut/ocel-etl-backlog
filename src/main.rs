@@ -3,8 +3,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use ocel_etl::StagingLog;
 use ocel_etl_backlog::client::BacklogClient;
-use ocel_etl_backlog::mapper::map_projects;
+use ocel_etl_backlog::mapper::ProjectMapper;
 
 /// Backlog → OCEL 2.0 extraction.
 #[derive(Debug, Parser)]
@@ -33,27 +34,27 @@ enum Command {
 
 fn pull(project_keys: &[String], out: &Path) -> Result<(), Box<dyn Error>> {
     let client = BacklogClient::from_env()?;
+    let mut staging = StagingLog::new();
 
-    let mut projects = Vec::with_capacity(project_keys.len());
     for key in project_keys {
         let project = client.project(key)?;
         eprintln!("project: {} ({})", project.name, project.project_key);
 
+        // the issue list is buffered (needed to resolve parent links);
+        // comments — the bulk of the data — are mapped and dropped per issue
         let issues = client.all_issues(project.id)?;
         eprintln!("issues: {}", issues.len());
 
-        let mut with_comments = Vec::with_capacity(issues.len());
-        for (index, issue) in issues.into_iter().enumerate() {
+        let mapper = ProjectMapper::new(&project, &issues);
+        mapper.register(&mut staging);
+        for (index, issue) in issues.iter().enumerate() {
             let comments = client.all_comments(issue.id)?;
+            mapper.map_issue(&mut staging, issue, &comments);
             if (index + 1) % 100 == 0 {
-                eprintln!("  fetched comments for {} issues...", index + 1);
+                eprintln!("  mapped {} issues...", index + 1);
             }
-            with_comments.push((issue, comments));
         }
-        projects.push((project, with_comments));
     }
-
-    let staging = map_projects(&projects);
     let log = staging
         .into_ocel()
         .map_err(|violations| format!("staged data is not a valid OCEL log: {violations:?}"))?;

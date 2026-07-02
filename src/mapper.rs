@@ -48,24 +48,49 @@ pub fn map_project_into(
     project: &Project,
     issues: &[(Issue, Vec<Comment>)],
 ) {
-    let epoch = DateTime::UNIX_EPOCH;
-
-    staging.upsert_object(&project.project_key, "project");
-    staging.add_object_attribute(
-        &project.project_key,
-        "name",
-        AttrValue::String(project.name.clone()),
-        epoch,
-    );
-
-    // issue id -> key, for resolving parentIssueId (same-project only)
-    let key_of: HashMap<u64, &str> = issues
-        .iter()
-        .map(|(issue, _)| (issue.id, issue.issue_key.as_str()))
-        .collect();
-
+    let mapper = ProjectMapper::new(project, issues.iter().map(|(issue, _)| issue));
+    mapper.register(staging);
     for (issue, comments) in issues {
-        map_issue(staging, project, issue, comments, &key_of);
+        mapper.map_issue(staging, issue, comments);
+    }
+}
+
+/// Streaming-friendly mapper for one project: build it from the (lightweight)
+/// issue list, then feed each issue's comments as they are fetched and drop
+/// them — memory over comments stays constant.
+///
+/// The issue list is needed up front only to resolve `parentIssueId` into
+/// issue keys.
+#[derive(Debug)]
+pub struct ProjectMapper<'a> {
+    project: &'a Project,
+    key_of: HashMap<u64, String>,
+}
+
+impl<'a> ProjectMapper<'a> {
+    /// Build the mapper from the project and its issue list.
+    pub fn new<'i>(project: &'a Project, issues: impl IntoIterator<Item = &'i Issue>) -> Self {
+        let key_of = issues
+            .into_iter()
+            .map(|issue| (issue.id, issue.issue_key.clone()))
+            .collect();
+        Self { project, key_of }
+    }
+
+    /// Register the project object (call once per project).
+    pub fn register(&self, staging: &mut StagingLog) {
+        staging.upsert_object(&self.project.project_key, "project");
+        staging.add_object_attribute(
+            &self.project.project_key,
+            "name",
+            AttrValue::String(self.project.name.clone()),
+            DateTime::UNIX_EPOCH,
+        );
+    }
+
+    /// Map one issue (with its comments) into the staging log.
+    pub fn map_issue(&self, staging: &mut StagingLog, issue: &Issue, comments: &[Comment]) {
+        map_issue(staging, self.project, issue, comments, &self.key_of);
     }
 }
 
@@ -86,7 +111,7 @@ fn map_issue(
     project: &Project,
     issue: &Issue,
     comments: &[Comment],
-    key_of: &HashMap<u64, &str>,
+    key_of: &HashMap<u64, String>,
 ) {
     let task = issue.issue_key.as_str();
     let epoch = DateTime::UNIX_EPOCH;
