@@ -117,3 +117,42 @@ fn o2o_links() {
         .o2o()
         .any(|r| r.source_id == "DEMO-1" && r.qualifier == "categorized as"));
 }
+
+/// Two projects merge into one log: the shared user object is deduplicated,
+/// both project objects exist, and the log validates.
+#[test]
+fn multiple_projects_merge_into_one_log() {
+    use ocel_etl_backlog::mapper::map_projects;
+
+    let second_project: Project =
+        serde_json::from_str(r#"{"id":2,"projectKey":"OPS","name":"Ops Project"}"#).unwrap();
+    // reuse the fixture issue under a different key/id for the second project
+    let mut second_issue = issue();
+    second_issue.id = 999;
+    second_issue.issue_key = "OPS-1".into();
+
+    let ocel = map_projects(&[
+        (project(), vec![(issue(), comments())]),
+        (second_project, vec![(second_issue, vec![])]),
+    ])
+    .into_ocel()
+    .unwrap();
+
+    assert_eq!(ocel.validate(), Ok(()));
+    let projects: Vec<&str> = ocel
+        .objects
+        .iter()
+        .filter(|o| o.object_type == "project")
+        .map(|o| o.id.as_str())
+        .collect();
+    assert_eq!(projects, vec!["DEMO", "OPS"]);
+
+    // Bob created issues in both projects -> exactly one user object
+    let bobs = ocel
+        .objects
+        .iter()
+        .filter(|o| o.object_type == "user" && o.id == "user:12")
+        .count();
+    assert_eq!(bobs, 1);
+    assert!(ocel.events.iter().any(|e| e.id == "OPS-1/created"));
+}
