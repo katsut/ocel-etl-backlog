@@ -171,7 +171,7 @@ fn streaming_equals_batch() {
     let p = project();
     let issues = vec![issue()];
     let mut staging = StagingLog::new();
-    let mapper = ProjectMapper::new(&p, &issues);
+    let mut mapper = ProjectMapper::new(&p, &issues);
     mapper.register(&mut staging);
     for one in &issues {
         let cs = comments(); // fetched per issue, dropped after mapping
@@ -180,4 +180,26 @@ fn streaming_equals_batch() {
     let streamed = staging.into_ocel().unwrap();
 
     assert_eq!(batch, streamed);
+}
+
+/// Non-whitelisted changeLog fields are counted, not silently lost.
+#[test]
+fn skipped_fields_are_counted() {
+    use ocel_etl::StagingLog;
+    use ocel_etl_backlog::mapper::ProjectMapper;
+
+    let p = project();
+    let issues = vec![issue()];
+    let mut staging = StagingLog::new();
+    let mut mapper = ProjectMapper::new(&p, &issues);
+    mapper.register(&mut staging);
+    mapper.map_issue(&mut staging, &issues[0], &comments());
+
+    assert_eq!(mapper.skipped_fields().get("component"), Some(&1));
+    // and the skipped field produced no event
+    let ocel = staging.into_ocel().unwrap();
+    assert!(!ocel
+        .events
+        .iter()
+        .any(|e| e.event_type.contains("component")));
 }

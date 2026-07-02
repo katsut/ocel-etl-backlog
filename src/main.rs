@@ -45,7 +45,7 @@ fn pull(project_keys: &[String], out: &Path) -> Result<(), Box<dyn Error>> {
         let issues = client.all_issues(project.id)?;
         eprintln!("issues: {}", issues.len());
 
-        let mapper = ProjectMapper::new(&project, &issues);
+        let mut mapper = ProjectMapper::new(&project, &issues);
         mapper.register(&mut staging);
         for (index, issue) in issues.iter().enumerate() {
             let comments = client.all_comments(issue.id)?;
@@ -53,6 +53,14 @@ fn pull(project_keys: &[String], out: &Path) -> Result<(), Box<dyn Error>> {
             if (index + 1) % 100 == 0 {
                 eprintln!("  mapped {} issues...", index + 1);
             }
+        }
+        if !mapper.skipped_fields().is_empty() {
+            let summary: Vec<String> = mapper
+                .skipped_fields()
+                .iter()
+                .map(|(field, count)| format!("{field} x{count}"))
+                .collect();
+            eprintln!("  skipped changeLog fields: {}", summary.join(", "));
         }
     }
     let log = staging
