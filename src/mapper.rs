@@ -9,7 +9,7 @@
 //! as dynamic attributes, initial values reconstructed from the first change's
 //! `originalValue`), `user`, `project`, `milestone`, `category`.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::DateTime;
 use ocel::AttrValue;
@@ -48,7 +48,7 @@ pub fn map_project_into(
     project: &Project,
     issues: &[(Issue, Vec<Comment>)],
 ) {
-    let mapper = ProjectMapper::new(project, issues.iter().map(|(issue, _)| issue));
+    let mut mapper = ProjectMapper::new(project, issues.iter().map(|(issue, _)| issue));
     mapper.register(staging);
     for (issue, comments) in issues {
         mapper.map_issue(staging, issue, comments);
@@ -65,6 +65,7 @@ pub fn map_project_into(
 pub struct ProjectMapper<'a> {
     project: &'a Project,
     key_of: HashMap<u64, String>,
+    skipped: BTreeMap<String, usize>,
 }
 
 impl<'a> ProjectMapper<'a> {
@@ -74,7 +75,11 @@ impl<'a> ProjectMapper<'a> {
             .into_iter()
             .map(|issue| (issue.id, issue.issue_key.clone()))
             .collect();
-        Self { project, key_of }
+        Self {
+            project,
+            key_of,
+            skipped: BTreeMap::new(),
+        }
     }
 
     /// Register the project object (call once per project).
@@ -89,8 +94,22 @@ impl<'a> ProjectMapper<'a> {
     }
 
     /// Map one issue (with its comments) into the staging log.
-    pub fn map_issue(&self, staging: &mut StagingLog, issue: &Issue, comments: &[Comment]) {
-        map_issue(staging, self.project, issue, comments, &self.key_of);
+    pub fn map_issue(&mut self, staging: &mut StagingLog, issue: &Issue, comments: &[Comment]) {
+        map_issue(
+            staging,
+            self.project,
+            issue,
+            comments,
+            &self.key_of,
+            &mut self.skipped,
+        );
+    }
+
+    /// `changeLog` fields that were skipped (not in the mapping whitelist),
+    /// with occurrence counts. Dropping is deliberate; dropping silently is not.
+    #[must_use]
+    pub fn skipped_fields(&self) -> &BTreeMap<String, usize> {
+        &self.skipped
     }
 }
 
@@ -112,6 +131,7 @@ fn map_issue(
     issue: &Issue,
     comments: &[Comment],
     key_of: &HashMap<u64, String>,
+    skipped: &mut BTreeMap<String, usize>,
 ) {
     let task = issue.issue_key.as_str();
     let epoch = DateTime::UNIX_EPOCH;
@@ -191,6 +211,10 @@ fn map_issue(
             });
         }
         for (index, change) in comment.change_log.iter().enumerate() {
+            if change_kind(&change.field).is_none() {
+                *skipped.entry(change.field.clone()).or_insert(0) += 1;
+                continue;
+            }
             map_change(staging, task, comment, index, change, &commenter);
         }
     }
