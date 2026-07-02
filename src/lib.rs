@@ -5,4 +5,5 @@
 //! OCEL 2.0 event log through the [`ocel_etl::StagingLog`] gate.
 
 pub mod client;
+pub mod mapper;
 pub mod models;
