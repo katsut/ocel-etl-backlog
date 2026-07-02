@@ -157,7 +157,7 @@ fn multiple_projects_merge_into_one_log() {
     assert!(ocel.events.iter().any(|e| e.id == "OPS-1/created"));
 }
 
-/// Streaming ingestion (ProjectMapper) produces exactly the same log as the
+/// Streaming ingestion (`ProjectMapper`) produces exactly the same log as the
 /// batch path.
 #[test]
 fn streaming_equals_batch() {
