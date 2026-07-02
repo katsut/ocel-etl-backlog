@@ -6,7 +6,14 @@ license = "MIT"
 repository = "https://github.com/katsut/ocel-etl-backlog"
 description = "Backlog → OCEL 2.0 ETL connector"
 
+[[bin]]
+name = "ocel-backlog"
+path = "src/main.rs"
+
 [dependencies]
+ocel = "0.1.2"
+ocel-etl = "0.1.0"
+clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
