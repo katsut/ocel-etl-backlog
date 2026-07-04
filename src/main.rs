@@ -45,6 +45,26 @@ enum Command {
     },
 }
 
+// --- connector contract v2: NDJSON progress events on stdout -----------------
+
+fn emit(value: &serde_json::Value) {
+    println!("{value}");
+}
+
+fn emit_progress(stage: &str, done: usize, total: usize) {
+    emit(&serde_json::json!({"event": "progress", "stage": stage, "done": done, "total": total}));
+}
+
+fn emit_log(message: &str) {
+    emit(&serde_json::json!({"event": "log", "level": "info", "message": message}));
+}
+
+fn emit_done(events: usize, objects: usize) {
+    emit(&serde_json::json!({"event": "done", "events": events, "objects": objects}));
+}
+
+// -----------------------------------------------------------------------------
+
 fn parse_since(s: &str) -> Result<DateTime<Utc>, Box<dyn Error>> {
     if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
         return Ok(dt.to_utc());
@@ -91,6 +111,7 @@ fn pull(
             project.project_key,
             issues.len()
         );
+        emit_log(&format!("{}: {} issues", project.project_key, issues.len()));
         for issue in &issues {
             if since.is_none_or(|s| issue.updated >= s) {
                 refreshed.insert(issue.issue_key.clone());
@@ -109,6 +130,10 @@ fn pull(
     for (project, issues) in &per_project {
         let mut mapper = ProjectMapper::new(project, issues.iter());
         mapper.register(&mut staging);
+        let total = issues
+            .iter()
+            .filter(|i| refreshed.contains(&i.issue_key))
+            .count();
         let mut count = 0usize;
         for issue in issues {
             if !refreshed.contains(&issue.issue_key) {
@@ -117,6 +142,7 @@ fn pull(
             let comments = client.all_comments(issue.id)?;
             mapper.map_issue(&mut staging, issue, &comments);
             count += 1;
+            emit_progress(&project.project_key, count, total);
             if count.is_multiple_of(100) {
                 eprintln!("  mapped {count} refreshed issues...");
             }
@@ -145,6 +171,7 @@ fn pull(
 
     ocel::io::write_path(&log, out)?;
     eprintln!("wrote {}", out.display());
+    emit_done(log.events.len(), log.objects.len());
     Ok(())
 }
 
