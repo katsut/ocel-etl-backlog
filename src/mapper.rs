@@ -48,7 +48,7 @@ pub fn map_project_into(
     project: &Project,
     issues: &[(Issue, Vec<Comment>)],
 ) {
-    let mut mapper = ProjectMapper::new(project, issues.iter().map(|(issue, _)| issue));
+    let mut mapper = ProjectMapper::new(project, issues.iter().map(|(issue, _)| issue), false);
     mapper.register(staging);
     for (issue, comments) in issues {
         mapper.map_issue(staging, issue, comments);
@@ -65,12 +65,20 @@ pub fn map_project_into(
 pub struct ProjectMapper<'a> {
     project: &'a Project,
     key_of: HashMap<u64, String>,
+    /// Store comment text as a `body` event attribute (default off:
+    /// Backlog spaces are private data; opt in with `--comment-bodies`
+    /// when content predicates need the text).
+    comment_bodies: bool,
     skipped: BTreeMap<String, usize>,
 }
 
 impl<'a> ProjectMapper<'a> {
     /// Build the mapper from the project and its issue list.
-    pub fn new<'i>(project: &'a Project, issues: impl IntoIterator<Item = &'i Issue>) -> Self {
+    pub fn new<'i>(
+        project: &'a Project,
+        issues: impl IntoIterator<Item = &'i Issue>,
+        comment_bodies: bool,
+    ) -> Self {
         let key_of = issues
             .into_iter()
             .map(|issue| (issue.id, issue.issue_key.clone()))
@@ -78,6 +86,7 @@ impl<'a> ProjectMapper<'a> {
         Self {
             project,
             key_of,
+            comment_bodies,
             skipped: BTreeMap::new(),
         }
     }
@@ -101,6 +110,7 @@ impl<'a> ProjectMapper<'a> {
             issue,
             comments,
             &self.key_of,
+            self.comment_bodies,
             &mut self.skipped,
         );
     }
@@ -131,6 +141,7 @@ fn map_issue(
     issue: &Issue,
     comments: &[Comment],
     key_of: &HashMap<u64, String>,
+    comment_bodies: bool,
     skipped: &mut BTreeMap<String, usize>,
 ) {
     let task = issue.issue_key.as_str();
@@ -198,12 +209,17 @@ fn map_issue(
     // field-specific change events (and dynamic attribute updates)
     for comment in comments {
         let commenter = user_object(staging, &comment.created_user);
-        if comment.content.as_deref().is_some_and(|c| !c.is_empty()) {
+        if let Some(content) = comment.content.as_deref().filter(|c| !c.is_empty()) {
+            let attributes = if comment_bodies {
+                vec![("body".to_owned(), AttrValue::String(content.to_owned()))]
+            } else {
+                vec![]
+            };
             staging.add_event(StagingEvent {
                 id: format!("{task}/comment/{}", comment.id),
                 event_type: "comment_added".into(),
                 time: comment.created,
-                attributes: vec![],
+                attributes,
                 relations: vec![
                     (task.to_owned(), "commented on".into()),
                     (commenter.clone(), "commenter".into()),
