@@ -42,6 +42,10 @@ enum Command {
         /// Ignore any existing --out file and pull everything.
         #[arg(long)]
         full: bool,
+        /// Store comment text as a `body` event attribute (off by default:
+        /// Backlog spaces are private data).
+        #[arg(long)]
+        comment_bodies: bool,
     },
 }
 
@@ -81,6 +85,7 @@ fn pull(
     out: &Path,
     since_arg: Option<&str>,
     full: bool,
+    comment_bodies: bool,
 ) -> Result<(), Box<dyn Error>> {
     let client = BacklogClient::from_env()?;
 
@@ -128,7 +133,7 @@ fn pull(
 
     // pass 2: map refreshed issues, streaming comments per issue
     for (project, issues) in &per_project {
-        let mut mapper = ProjectMapper::new(project, issues.iter());
+        let mut mapper = ProjectMapper::new(project, issues.iter(), comment_bodies);
         mapper.register(&mut staging);
         let total = issues
             .iter()
@@ -183,7 +188,8 @@ fn main() -> ExitCode {
             out,
             since,
             full,
-        } => match pull(&projects, &out, since.as_deref(), full) {
+            comment_bodies,
+        } => match pull(&projects, &out, since.as_deref(), full, comment_bodies) {
             Ok(()) => ExitCode::SUCCESS,
             Err(err) => {
                 eprintln!("error: {err}");

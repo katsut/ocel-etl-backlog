@@ -171,7 +171,7 @@ fn streaming_equals_batch() {
     let p = project();
     let issues = vec![issue()];
     let mut staging = StagingLog::new();
-    let mut mapper = ProjectMapper::new(&p, &issues);
+    let mut mapper = ProjectMapper::new(&p, &issues, false);
     mapper.register(&mut staging);
     for one in &issues {
         let cs = comments(); // fetched per issue, dropped after mapping
@@ -191,7 +191,7 @@ fn skipped_fields_are_counted() {
     let p = project();
     let issues = vec![issue()];
     let mut staging = StagingLog::new();
-    let mut mapper = ProjectMapper::new(&p, &issues);
+    let mut mapper = ProjectMapper::new(&p, &issues, false);
     mapper.register(&mut staging);
     mapper.map_issue(&mut staging, &issues[0], &comments());
 
@@ -202,4 +202,38 @@ fn skipped_fields_are_counted() {
         .events
         .iter()
         .any(|e| e.event_type.contains("component")));
+}
+
+/// Comment text lands as a `body` attribute only when opted in.
+#[test]
+fn comment_bodies_are_opt_in() {
+    use ocel_etl::StagingLog;
+    use ocel_etl_backlog::mapper::ProjectMapper;
+
+    let p = project();
+    let issues = vec![issue()];
+
+    let mut staging = StagingLog::new();
+    let mut on = ProjectMapper::new(&p, &issues, true);
+    on.register(&mut staging);
+    on.map_issue(&mut staging, &issues[0], &comments());
+    let log = staging.into_ocel().unwrap();
+    let with_body = log
+        .events
+        .iter()
+        .find(|e| e.event_type == "comment_added")
+        .unwrap();
+    assert!(with_body.attributes.iter().any(|a| a.name == "body"));
+
+    let mut staging = StagingLog::new();
+    let mut off = ProjectMapper::new(&p, &issues, false);
+    off.register(&mut staging);
+    off.map_issue(&mut staging, &issues[0], &comments());
+    let log = staging.into_ocel().unwrap();
+    let without = log
+        .events
+        .iter()
+        .find(|e| e.event_type == "comment_added")
+        .unwrap();
+    assert!(without.attributes.is_empty());
 }

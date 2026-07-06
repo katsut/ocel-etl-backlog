@@ -71,7 +71,7 @@ fn incremental_merge_equals_full_pull() {
     let p = project();
     let issues = vec![issue()];
     let mut staging = StagingLog::from_ocel(prune_refreshed(&v1, &refreshed(&["DEMO-1"])));
-    let mut mapper = ProjectMapper::new(&p, &issues);
+    let mut mapper = ProjectMapper::new(&p, &issues, false);
     mapper.register(&mut staging);
     mapper.map_issue(&mut staging, &issues[0], &comments_v2());
     let incremental = staging.into_ocel().unwrap();
@@ -111,7 +111,7 @@ fn parent_link_survives_parent_refresh() {
     let issues = vec![parent.clone(), child.clone()];
     let only_parent = refreshed(&["DEMO-1"]);
     let mut staging = StagingLog::from_ocel(prune_refreshed(&v1, &only_parent));
-    let mut mapper = ProjectMapper::new(&p, &issues);
+    let mut mapper = ProjectMapper::new(&p, &issues, false);
     mapper.register(&mut staging);
     mapper.map_issue(&mut staging, &parent, &comments_v2());
     repair_parent_links(&mut staging, &issues, &only_parent);
